@@ -1,0 +1,14 @@
+name = "course-cal-proxy"
+main = "worker.js"
+compatibility_date = "2024-05-01"
+
+[vars]
+# Airtable Base ID (비밀 아님 — 공개돼도 무방)
+AIRTABLE_BASE_ID = "appBE8hNg4XNtmho8"
+
+# 운영 시 본인 GitHub Pages 주소로 설정 권장 (콤마로 여러 개 가능).
+# 미설정 시 모든 도메인 허용(개발 편의). 예:
+# ALLOWED_ORIGINS = "https://hkitcampus.github.io"
+
+# ※ AIRTABLE_TOKEN 은 여기 적지 말 것! 아래 명령으로 Secret 등록:
+#    npx wrangler secret put AIRTABLE_TOKEN

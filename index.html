@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COURSE SCHEDULE CALCULATOR — 수업 일정 계산기</title>
+    <link rel="stylesheet" href="course_style.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Lora:ital,wght@0,400;0,600;1,400&family=Noto+Serif+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="masthead">
+            <div class="masthead-top">
+                <span class="masthead-meta">VOL. 2 — NO. 0</span>
+                <span class="masthead-meta">EDUCATION EDITION</span>
+                <span class="masthead-meta">PRINTED IN HANKYUNG</span>
+            </div>
+            <h1 class="masthead-title">Course Schedule Calculator</h1>
+            <p class="masthead-sub">수업 일정 &middot; 훈련비 &middot; 단위기간 분석 리포트</p>
+        </header>
+
+        <div class="ornament" aria-hidden="true">&#x2727; &#x2727; &#x2727;</div>
+
+        <div class="main-content">
+            <div class="input-panel">
+                <!-- 일정 설정 (기본 펼침) -->
+                <section class="card collapsible" data-collapsed="false">
+                    <h2 class="card-header">일정 설정<span class="collapse-indicator"></span></h2>
+                    <div class="card-content">
+                        <div class="form-group">
+                            <label for="startDate">시작 날짜</label>
+                            <input type="date" id="startDate" class="input-field">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="dailyHours">1일 수업시간</label>
+                                <div class="input-with-unit">
+                                    <input type="number" id="dailyHours" class="input-field" value="8.0" step="0.5" min="0.5">
+                                    <span class="unit">시간</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="totalHours">총 수업시간</label>
+                                <div class="input-with-unit">
+                                    <input type="number" id="totalHours" class="input-field" value="100" min="1">
+                                    <span class="unit">시간</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 과정 정보 (기본 펼침) -->
+                <section class="card collapsible" data-collapsed="false">
+                    <h2 class="card-header">과정 정보<span class="collapse-indicator"></span></h2>
+                    <div class="card-content">
+                        <div class="form-group">
+                            <label for="courseName">과정명</label>
+                            <input type="text" id="courseName" class="input-field" placeholder="예: 프론트엔드 개발 과정">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="unitPrice">단가</label>
+                                <select id="unitPrice" class="input-field">
+                                    <option value="9477">9,477원</option>
+                                    <option value="14150">14,150원</option>
+                                    <option value="14500">14,500원</option>
+                                    <option value="18150">18,150원</option>
+                                    <option value="24500">24,500원</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="capacity">정원</label>
+                                <div class="input-with-unit">
+                                    <input type="number" id="capacity" class="input-field" value="20" min="1">
+                                    <span class="unit">명</span>
+                                </div>
+                            </div>
+                        </div>
+                
+                
+                        
+
+                        <!-- 휴일 교육 (기본 접힘) -->
+                        <div class="sub-section collapsible" data-collapsed="true">
+                            <div class="sub-header">휴일 교육 <em>(휴일이어도 교육하는 날 &middot; 이 과정 전용)</em><span class="collapse-indicator"></span></div>
+                            <div class="sub-content">
+                                <div class="holiday-input-row">
+                                    <input type="date" id="addTrainingDate" class="input-field" aria-label="휴일 교육 날짜">
+                                    <button id="addTrainingBtn" class="button secondary">휴일 교육 추가</button>
+                                </div>
+                                <ul id="trainingList" class="holiday-list">
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- 과정 휴일 (기본 접힘) -->
+                        <div class="sub-section collapsible" data-collapsed="true">
+                            <div class="sub-header">과정 휴일 <em>(이 과정에만 적용되는 휴일)</em><span class="collapse-indicator"></span></div>
+                            <div class="sub-content">
+                                <div class="holiday-input-row">
+                                    <input type="date" id="addCourseHolidayDate" class="input-field" aria-label="과정 휴일 날짜">
+                                    <input type="text" id="addCourseHolidayName" class="input-field" placeholder="휴일 명" aria-label="과정 휴일 명">
+                                    <button id="addCourseHolidayBtn" class="button secondary">과정 휴일 추가</button>
+                                </div>
+                                <ul id="courseHolidayList" class="holiday-list">
+                                </ul>
+                            </div>
+                        </div>
+
+                        <button id="calculateBtn" class="button primary">계산하기</button>
+                    </div>
+                </section>
+
+                <!-- 저장된 과정 (기본 접힘) -->
+                <section class="card saved-schedules collapsible" data-collapsed="true">
+                    <h2 class="card-header">저장된 과정<span class="collapse-indicator"></span></h2>
+                    <div class="card-content">
+                        <button id="saveScheduleBtn" class="button secondary">현재 일정 저장</button>
+                        <ul id="savedSchedulesList" class="schedule-list">
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- 추가 휴일 설정 (기본 접힘) -->
+                <section class="card collapsible" data-collapsed="true">
+                    <h2 class="card-header">추가 휴일 설정 <em class="header-hint">(모든 과정 공통)</em><span class="collapse-indicator"></span></h2>
+                    <div class="card-content">
+                        <div class="form-group">
+                            <label for="addHolidayDate">휴일 날짜 / 휴일 명</label>
+                            <div class="holiday-input-row">
+                                <input type="date" id="addHolidayDate" class="input-field" aria-label="추가 휴일 날짜">
+                                <input type="text" id="addHolidayName" class="input-field" placeholder="휴일 명 (예: 개인 휴가)" aria-label="추가 휴일 명">
+                                <button id="addHolidayBtn" class="button secondary">휴일 추가</button>
+                            </div>
+                        </div>
+                        <ul id="customHolidaysList" class="holiday-list">
+                        </ul>
+                    </div>
+                </section>
+            </div>
+
+            <div class="output-panel">
+                <!-- 결과 요약 (기본 펼침) -->
+                <section class="card result-summary collapsible" data-collapsed="false">
+                    <h2 class="card-header">결과 요약 <span class="refresh-icon" id="refreshSummary" role="button" aria-label="새로고침">&#x21BB;</span><span class="collapse-indicator"></span></h2>
+                    <div class="card-content">
+                        <p><strong>시작일</strong> <span id="summaryStartDate">-</span></p>
+                        <p><strong>종료일</strong> <span id="summaryEndDate">-</span></p>
+                        <p><strong>전체 기간</strong> <span id="summaryTotalDays">-</span>일</p>
+                        <p><strong>실제 수업일</strong> <span id="summaryClassDays">-</span>일</p>
+                        <p><strong>휴일 교육일</strong> <span id="summaryTrainingDays">-</span>일</p>
+                        <p><strong>제외된 주말일</strong> <span id="summaryWeekendDays">-</span>일</p>
+                        <p><strong>제외된 공휴일</strong> <span id="summaryHolidayDays">-</span>일 (<span id="summaryHolidayNames">-</span>)</p>
+                        <p><strong>실제 수업시간</strong> <span id="summaryActualHours">-</span>시간</p>
+                        <hr class="summary-divider">
+                        <p><strong>단가</strong> <span id="summaryUnitPrice">-</span></p>
+                        <p><strong>정원</strong> <span id="summaryCapacity">-</span></p>
+                        <p><strong>총 훈련비</strong> <span id="summaryTotalFee">-</span></p>
+                        <div id="unitPeriodSection" class="unit-period-section">
+                            <h3>단위기간별 훈련비</h3>
+                            <table class="unit-period-table">
+                                <thead>
+                                    <tr>
+                                        <th>단위기간</th>
+                                        <th>기간</th>
+                                        <th>수업시간</th>
+                                        <th>훈련비</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="unitPeriodTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 일정 달력 (기본 펼침) -->
+                <section class="card calendar-view collapsible" data-collapsed="false">
+                    <h2 class="card-header">일정 달력<span class="collapse-indicator"></span></h2>
+                    <div class="card-content">
+                        <div id="calendarsContainer" class="calendars-container">
+                        </div>
+                        <div class="calendar-legend">
+                            <span class="legend-item"><span class="legend-color class-day"></span> 수업일</span>
+                            <span class="legend-item"><span class="legend-color holiday-training"></span> 휴일 교육</span>
+                            <span class="legend-item"><span class="legend-color weekend"></span> 주말</span>
+                            <span class="legend-item"><span class="legend-color holiday"></span> 공휴일</span>
+                            <span class="legend-item"><span class="legend-color custom-holiday"></span> 추가 휴일</span>
+                            <span class="legend-item"><span class="legend-color course-holiday"></span> 과정 휴일</span>
+                            <span class="legend-item"><span class="legend-color start-end-day"></span> 시작/종료일</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <footer class="masthead-footer">
+            <span>EDITION: VOL 2.0</span>
+            <span>&#x2014; ALL THE SCHEDULES THAT'S FIT TO PRINT &#x2014;</span>
+            <span>&copy; COURSE_CAL</span>
+        </footer>
+    </div>
+
+    <script src="course_script.js"></script>
+    <script src="course_holliday.js"></script>
+</body>
+</html>
