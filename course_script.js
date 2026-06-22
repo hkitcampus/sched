@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // API 설정 — 키는 브라우저에 없음. Cloudflare Worker 프록시가 Airtable 키를 보관.
     // ★ 프록시 배포 후 proxyUrl 을 본인 Worker 주소로 교체하세요. (예: https://course-cal-proxy.xxxx.workers.dev)
     const API_CONFIG = {
-        proxyUrl: ' https://course-cal-proxy.itcampus00.workers.dev',
+        proxyUrl: 'https://course-cal-proxy.itcampus00.workers.dev',
         scheduleTable: 'curri_schedule_db',
         holidayTable: 'custom_holidays_db'
     };
