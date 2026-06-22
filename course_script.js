@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentScheduleData = null; // 현재 계산된 일정 데이터 저장
     let editingHolidayIndex = -1;   // 추가 휴일 수정 중인 인덱스 (-1: 추가 모드)
     let editingCourseHolidayIndex = -1; // 과정 휴일 수정 중인 인덱스
+    let dragFromIndex = null;       // 저장된 과정 목록 드래그 시작 인덱스
 
     // API 설정 — 키는 브라우저에 없음. Cloudflare Worker 프록시가 Airtable 키를 보관.
     // ★ 프록시 배포 후 proxyUrl 을 본인 Worker 주소로 교체하세요. (예: https://course-cal-proxy.xxxx.workers.dev)
@@ -60,7 +61,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 프록시 경유 URL 빌더 (테이블/레코드만 전달, 키/baseId는 서버가 주입)
     function apiUrl(table, recordId) {
-        const base = `${API_CONFIG.proxyUrl}/${table}`;
+        const root = API_CONFIG.proxyUrl.trim().replace(/\/+$/, ''); // 공백/끝 슬래시 제거
+        const base = `${root}/${table}`;
         return recordId ? `${base}/${recordId}` : base;
     }
 
@@ -85,6 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'Course Holidays': JSON.stringify(scheduleData.courseHolidays || []),
             'Created At': new Date().toISOString()
         };
+        // 'Sort Order' 는 선택 필드. 존재할 때만 별도 PATCH(updateScheduleOrderInAirtable)로 저장하여
+        // 필드가 없는 환경에서도 저장/불러오기가 깨지지 않도록 메인 저장 payload에는 포함하지 않음.
     }
 
     async function saveToAirtable(scheduleData) {
@@ -157,12 +161,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 customHolidays: record.fields['Custom Holidays'] ? JSON.parse(record.fields['Custom Holidays']) : [],
                 courseHolidayTraining: record.fields['Holiday Training'] ? JSON.parse(record.fields['Holiday Training']) : [],
                 courseHolidays: record.fields['Course Holidays'] ? JSON.parse(record.fields['Course Holidays']) : [],
+                sortOrder: record.fields['Sort Order'],
                 createdAt: record.fields['Created At']
             }));
         } catch (error) {
             console.error('로드 오류:', error);
             return [];
         }
+    }
+
+    // 저장된 과정의 순서(Sort Order)만 갱신
+    async function updateScheduleOrderInAirtable(recordId, order) {
+        const response = await fetch(apiUrl(API_CONFIG.scheduleTable, recordId), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fields: { 'Sort Order': order } })
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+        }
+        return response.json();
     }
 
     async function deleteFromAirtable(recordId) {
@@ -568,54 +587,110 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentScheduleData) calculateSchedule();
     }
 
+    // 저장된 과정 정렬: Sort Order(수동 순서) 우선, 없으면 최근 저장순(createdAt desc)
+    function sortSavedSchedules() {
+        savedSchedules.sort((a, b) => {
+            const ao = Number.isFinite(a.sortOrder) ? a.sortOrder : null;
+            const bo = Number.isFinite(b.sortOrder) ? b.sortOrder : null;
+            if (ao !== null && bo !== null) return ao - bo;
+            if (ao !== null) return -1;
+            if (bo !== null) return 1;
+            return (b.createdAt || b.savedAt || '').localeCompare(a.createdAt || a.savedAt || '');
+        });
+    }
+
+    // 드래그로 순서 변경 후 Airtable에 영구 저장
+    async function reorderSchedules(fromIndex, toIndex) {
+        if (fromIndex == null || toIndex == null || fromIndex === toIndex) return;
+        const moved = savedSchedules.splice(fromIndex, 1)[0];
+        savedSchedules.splice(toIndex, 0, moved);
+        // 새 순서대로 sortOrder 재부여 (0,1,2,...)
+        savedSchedules.forEach((s, i) => { s.sortOrder = i; });
+        renderSavedSchedules();
+        // 다른 환경에서도 적용되도록 Airtable에 순서 저장 (선택 필드 'Sort Order' 필요)
+        try {
+            await Promise.all(
+                savedSchedules.filter(s => s.id).map(s => updateScheduleOrderInAirtable(s.id, s.sortOrder))
+            );
+        } catch (error) {
+            console.warn('순서 영구 저장 실패:', error);
+            if (/Unknown field name/i.test(error.message)) {
+                // 필드 미존재: 현재 세션에서는 순서가 적용되지만 다른 기기에는 저장되지 않음
+                alert('순서는 현재 화면에 적용되었습니다.\n\n다른 PC/브라우저에도 순서를 유지하려면 Airtable의 "curri_schedule_db" 테이블에 숫자 필드 "Sort Order" 를 추가해 주세요.');
+            } else {
+                alert('순서 저장 중 오류가 발생했습니다: ' + error.message);
+            }
+        }
+    }
+
     // 저장된 일정 렌더링
     function renderSavedSchedules() {
         savedSchedulesList.innerHTML = '';
-        
+
         if (savedSchedules.length === 0) {
             const li = document.createElement('li');
-            li.innerHTML = '<span style="color: #888;">저장된 일정이 없습니다.</span>';
+            li.className = 'empty-state';
+            li.innerHTML = '<span style="color: var(--n500);">저장된 일정이 없습니다.</span>';
             savedSchedulesList.appendChild(li);
             return;
         }
 
+        sortSavedSchedules();
+
         savedSchedules.forEach((schedule, index) => {
             const li = document.createElement('li');
-            li.innerHTML = `
-                <span data-index="${index}" data-id="${schedule.id || ''}">${schedule.courseName}</span>
-                <button class="delete-btn" data-index="${index}" data-id="${schedule.id || ''}">&times;</button>
-            `;
-            savedSchedulesList.appendChild(li);
-        });
+            li.draggable = true;
+            li.dataset.index = index;
 
-        document.querySelectorAll('#savedSchedulesList span').forEach(span => {
-            span.addEventListener('click', (e) => {
-                const index = parseInt(e.target.dataset.index);
-                loadSchedule(savedSchedules[index]);
-            });
-        });
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'schedule-name';
+            nameSpan.textContent = schedule.courseName;
+            nameSpan.title = schedule.courseName; // 길어서 잘릴 때 오버 시 전체 표시
+            nameSpan.addEventListener('click', () => loadSchedule(savedSchedules[index]));
 
-        document.querySelectorAll('#savedSchedulesList .delete-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const index = parseInt(e.target.dataset.index);
-                const recordId = e.target.dataset.id;
-                
-                if (confirm('정말로 이 일정을 삭제하시겠습니까?')) {
-                    try {
-                        // Airtable에서 삭제
-                        if (recordId) {
-                            await deleteFromAirtable(recordId);
-                        }
-                        
-                        // 로컬에서 삭제
-                        savedSchedules.splice(index, 1);
-                        renderSavedSchedules();
-                        alert('일정이 삭제되었습니다.');
-                    } catch (error) {
-                        alert('삭제 중 오류가 발생했습니다: ' + error.message);
-                    }
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-btn';
+            delBtn.draggable = false;
+            delBtn.innerHTML = '&times;';
+            delBtn.addEventListener('click', async () => {
+                if (!confirm('정말로 이 일정을 삭제하시겠습니까?')) return;
+                try {
+                    if (schedule.id) await deleteFromAirtable(schedule.id);
+                    savedSchedules.splice(index, 1);
+                    renderSavedSchedules();
+                    alert('일정이 삭제되었습니다.');
+                } catch (error) {
+                    alert('삭제 중 오류가 발생했습니다: ' + error.message);
                 }
             });
+
+            // 드래그 정렬 핸들러
+            li.addEventListener('dragstart', (e) => {
+                dragFromIndex = index;
+                li.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            li.addEventListener('dragend', () => {
+                dragFromIndex = null;
+                document.querySelectorAll('#savedSchedulesList li').forEach(el => {
+                    el.classList.remove('dragging', 'drag-over');
+                });
+            });
+            li.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (dragFromIndex !== index) li.classList.add('drag-over');
+            });
+            li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+            li.addEventListener('drop', (e) => {
+                e.preventDefault();
+                li.classList.remove('drag-over');
+                reorderSchedules(dragFromIndex, index);
+            });
+
+            li.appendChild(nameSpan);
+            li.appendChild(delBtn);
+            savedSchedulesList.appendChild(li);
         });
     }
 
@@ -973,6 +1048,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const existingIndex = savedSchedules.findIndex(s => s.courseName === courseName);
         const existing = existingIndex >= 0 ? savedSchedules[existingIndex] : null;
         const isOverwrite = !!existing;
+
+        // 순서(Sort Order) 부여: 수정이면 기존 순서 유지, 신규면 최상단(가장 작은 값-1)
+        if (isOverwrite) {
+            schedule.sortOrder = Number.isFinite(existing.sortOrder) ? existing.sortOrder : undefined;
+        } else {
+            const minOrder = savedSchedules.reduce(
+                (m, s) => (Number.isFinite(s.sortOrder) ? Math.min(m, s.sortOrder) : m), 0
+            );
+            schedule.sortOrder = savedSchedules.length ? minOrder - 1 : 0;
+        }
 
         // 로딩 표시
         saveScheduleBtn.textContent = isOverwrite ? '수정 중...' : '저장 중...';
