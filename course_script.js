@@ -146,8 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return result.records.map(record => ({
                 id: record.id,
                 courseName: record.fields['Course Name'],
-                startDate: record.fields['Start Date'],
-                endDate: record.fields['End Date'],
+                startDate: normalizeDateString(record.fields['Start Date']),
+                endDate: normalizeDateString(record.fields['End Date']),
                 dailyHours: record.fields['Daily Hours'],
                 totalHours: record.fields['Total Hours'],
                 classDaysCount: record.fields['Class Days'],
@@ -302,6 +302,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dateString) return null;
         const [year, month, day] = dateString.split('-').map(Number);
         return new Date(year, month - 1, day);
+    }
+
+    // Airtable Date 필드는 ISO("2026-06-04T00:00:00.000Z")로 올 수 있으므로
+    // <input type="date">가 받는 'YYYY-MM-DD' 형태로 정규화
+    function normalizeDateString(value) {
+        if (!value) return '';
+        const s = String(value);
+        const m = s.match(/^\d{4}-\d{2}-\d{2}/);
+        return m ? m[0] : s;
     }
 
     function isSameDay(date1, date2) {
@@ -819,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 결과 요약 업데이트
         summaryStartDate.textContent = `${formatDate(startDate)} (${getKoreanDayName(startDate)})`;
         summaryEndDate.textContent = `${formatDate(endDate)} (${getKoreanDayName(endDate)})`;
-        summaryTotalDays.textContent = totalDays;
+        summaryTotalDays.textContent = `${totalDays}일 (${Math.max(totalDays - 1, 0)}박 ${totalDays}일)`;
         summaryClassDays.textContent = classDaysCount;
         summaryTrainingDays.textContent = trainingDaysCount;
         summaryWeekendDays.textContent = weekendDaysCount;
